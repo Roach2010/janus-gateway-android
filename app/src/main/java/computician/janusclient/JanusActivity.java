@@ -1,6 +1,5 @@
 package computician.janusclient;
 
-import android.app.Activity;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.util.Log;
@@ -12,7 +11,7 @@ import org.webrtc.RendererCommon;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoSink;
 
-public class JanusActivity extends Activity {
+public class JanusActivity extends BaseActivity {
     public static String janusUri;
     final int testCase = 1;
     private boolean activityRunning;
@@ -53,6 +52,10 @@ public class JanusActivity extends Activity {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_janus);
+
+        if (!checkPermissionNetwork()) return;
+        if (!checkPermissionAudio()) return;
+        if (!checkPermissionCamera()) return;
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
