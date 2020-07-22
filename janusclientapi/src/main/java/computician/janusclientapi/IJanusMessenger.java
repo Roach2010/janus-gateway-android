@@ -18,5 +18,7 @@ public interface IJanusMessenger {
 
     void receivedMessage(String message);
 
+    void longPoll();
+
     JanusMessengerType getMessengerType();
 }

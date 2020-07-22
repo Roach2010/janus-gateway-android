@@ -1,8 +1,5 @@
 package computician.janusclient;
 
-import computician.janusclient.util.SystemUiHider;
-import computician.janusclientapi.*;
-
 import android.app.Activity;
 import android.opengl.EGLContext;
 import android.opengl.GLSurfaceView;
@@ -15,35 +12,12 @@ import org.webrtc.VideoRenderer;
 import org.webrtc.VideoRendererGui;
 
 public class JanusActivity extends Activity {
-    private static final boolean AUTO_HIDE = true;
-
+    final int testCase = 1;
     private GLSurfaceView vsv;
     private VideoRenderer.Callbacks localRender;
     private VideoRenderer.Callbacks remoteRender;
     private EchoTest echoTest;
     private VideoRoomTest videoRoomTest;
-
-    /**
-     * If {@link #AUTO_HIDE} is set, the number of milliseconds to wait after
-     * user interaction before hiding the system UI.
-     */
-    private static final int AUTO_HIDE_DELAY_MILLIS = 3000;
-
-    /**
-     * If set, will toggle the system UI visibility upon interaction. Otherwise,
-     * will show the system UI visibility upon interaction.
-     */
-    private static final boolean TOGGLE_ON_CLICK = true;
-
-    /**
-     * The flags to pass to {@link SystemUiHider#getInstance}.
-     */
-    private static final int HIDER_FLAGS = SystemUiHider.FLAG_HIDE_NAVIGATION;
-
-    /**
-     * The instance of the {@link SystemUiHider} for this activity.
-     */
-    private SystemUiHider mSystemUiHider;
 
     private class MyInit implements Runnable {
 
@@ -54,9 +28,20 @@ public class JanusActivity extends Activity {
         private void init() {
             try {
                 EGLContext con = VideoRendererGui.getEGLContext();
-                echoTest = new EchoTest(localRender, remoteRender);
-                echoTest.initializeMediaContext(JanusActivity.this, true, true, true, con);
-                echoTest.Start();
+                switch (testCase) {
+                    case 1:
+                        echoTest = new EchoTest(localRender, remoteRender);
+                        echoTest.initializeMediaContext(JanusActivity.this, true, true, true, con);
+                        echoTest.Start();
+                        break;
+                    case 2:
+                        VideoRenderer.Callbacks[] renderers = new VideoRenderer.Callbacks[1];
+                        renderers[0] = remoteRender;
+                        videoRoomTest = new VideoRoomTest(localRender, renderers);
+                        videoRoomTest.initializeMediaContext(JanusActivity.this, true, true, true, con);
+                        videoRoomTest.Start();
+                        break;
+                }
 
             } catch (Exception ex) {
                 Log.e("computician.janusclient", ex.getMessage());

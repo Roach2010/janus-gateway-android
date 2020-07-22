@@ -1,6 +1,8 @@
 package computician.janusclientapi;
 
 import android.content.Context;
+import android.opengl.EGLContext;
+import android.os.AsyncTask;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -11,9 +13,6 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
-
-import android.opengl.EGLContext;
-import android.os.AsyncTask;
 
 /**
  * Created by ben.trent on 5/7/2015.
@@ -71,8 +70,6 @@ public class JanusServer implements Runnable, IJanusMessageObserver, IJanusSessi
 
     public JanusServer(IJanusGatewayCallbacks gatewayCallbacks) {
         gatewayObserver = gatewayCallbacks;
-        java.lang.System.setProperty("java.net.preferIPv6Addresses", "false");
-        java.lang.System.setProperty("java.net.preferIPv4Stack", "true");
         serverUri = gatewayObserver.getServerUri();
         iceServers = gatewayObserver.getIceServers();
         ipv6Support = gatewayObserver.getIpv6Support();
@@ -119,7 +116,8 @@ public class JanusServer implements Runnable, IJanusMessageObserver, IJanusSessi
                 thisThread.sleep(25000);
             } catch (InterruptedException ex) {
             }
-            if (!connected || serverConnection.getMessengerType() != JanusMessengerType.websocket)
+//            if (!connected || serverConnection.getMessengerType() != JanusMessengerType.websocket)
+            if (!connected)
                 return;
             JSONObject obj = new JSONObject();
             try {
@@ -168,6 +166,10 @@ public class JanusServer implements Runnable, IJanusMessageObserver, IJanusSessi
 
     public void Connect() {
         serverConnection.connect();
+    }
+
+    public void Disconnect() {
+        serverConnection.disconnect();
     }
 
     public void newMessageForPlugin(String message, BigInteger plugin_id) {
@@ -288,6 +290,7 @@ public class JanusServer implements Runnable, IJanusMessageObserver, IJanusSessi
                             cb.reportSuccess(obj);
                             transactions.remove(transaction);
                         }
+                        serverConnection.longPoll();
                     }
                     break;
                 }

@@ -1,1 +1,3 @@
-include ':app', ':janusclientapi'
+include ':app'
+include ':janusclientapi'
+rootProject.name = "JanusClient"

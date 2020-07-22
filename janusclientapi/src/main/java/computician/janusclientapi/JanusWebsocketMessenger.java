@@ -2,9 +2,7 @@ package computician.janusclientapi;
 
 import android.util.Log;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.math.BigInteger;
+import androidx.annotation.Nullable;
 
 import com.koushikdutta.async.ByteBufferList;
 import com.koushikdutta.async.DataEmitter;
@@ -15,6 +13,10 @@ import com.koushikdutta.async.http.AsyncHttpClient;
 import com.koushikdutta.async.http.WebSocket;
 
 import org.json.JSONObject;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.math.BigInteger;
 
 
 /**
@@ -37,12 +39,18 @@ public class JanusWebsocketMessenger implements IJanusMessenger {
         return type;
     }
 
+    @Override
     public void connect() {
         AsyncHttpClient.getDefaultInstance().websocket(uri, "janus-protocol", new AsyncHttpClient.WebSocketConnectCallback() {
             @Override
-            public void onCompleted(Exception ex, WebSocket webSocket) {
+            public void onCompleted(@Nullable final Exception ex, @Nullable final WebSocket webSocket) {
                 if (ex != null) {
                     handler.onError(ex);
+                    return;
+                }
+                if (webSocket == null) {
+                    handler.onError(new RuntimeException("webSocket is null"));
+                    return;
                 }
                 client = webSocket;
                 client.setWriteableCallback(new WritableCallback() {
@@ -145,5 +153,9 @@ public class JanusWebsocketMessenger implements IJanusMessenger {
         } catch (Exception ex) {
             handler.onError(ex);
         }
+    }
+
+    public void longPoll() {
+
     }
 }
