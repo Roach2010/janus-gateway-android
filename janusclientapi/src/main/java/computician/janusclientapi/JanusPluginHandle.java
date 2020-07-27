@@ -6,16 +6,16 @@ import android.util.Log;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.webrtc.*;
-import org.webrtc.videoengine.VideoCaptureAndroid;
 
 import java.math.BigInteger;
-import java.util.concurrent.locks.AbstractOwnableSynchronizer;
+
+import static org.webrtc.ContextUtils.*;
 
 /**
  * Created by ben.trent on 6/25/2015.
  */
 public class JanusPluginHandle {
-
+    private final String TAG = "JanusPluginHandle";
     private boolean started = false;
     private MediaStream myStream = null;
     private MediaStream remoteStream = null;
@@ -29,6 +29,10 @@ public class JanusPluginHandle {
     private final String VIDEO_TRACK_ID = "1929283";
     private final String AUDIO_TRACK_ID = "1928882";
     private final String LOCAL_MEDIA_ID = "1198181";
+    private static final int VIDEO_HEIGHT = 640;
+    private static final int VIDEO_WIDTH = 480;
+    private static final int VIDEO_FPS = 30;
+    private EglBase localEglbase;
 
     private class WebRtcObserver implements SdpObserver, PeerConnection.Observer {
         private final IPluginHandleWebRTCCallbacks webRtcCallbacks;
@@ -38,7 +42,7 @@ public class JanusPluginHandle {
 
         @Override
         public void onSetSuccess() {
-            Log.d("JANUSCLIENT", "On Set Success");
+            Log.d(TAG, "On Set Success");
             if (mySdp == null) {
                 createSdpInternal(webRtcCallbacks, false);
             }
@@ -46,26 +50,26 @@ public class JanusPluginHandle {
 
         @Override
         public void onSetFailure(String error) {
-            Log.d("JANUSCLIENT", "On set Failure");
+            Log.d(TAG, "On set Failure");
             //todo JS api does not account for this
             webRtcCallbacks.onCallbackError(error);
         }
 
         @Override
         public void onCreateSuccess(SessionDescription sdp) {
-            Log.d("JANUSCLIENT", "Create success");
+            Log.d(TAG, "Create success");
             onLocalSdp(sdp, webRtcCallbacks);
         }
 
         @Override
         public void onCreateFailure(String error) {
-            Log.d("JANUSCLIENT", "Create failure");
+            Log.d(TAG, "Create failure");
             webRtcCallbacks.onCallbackError(error);
         }
 
         @Override
         public void onSignalingChange(PeerConnection.SignalingState state) {
-            Log.d("JANUSCLIENT", "Signal change " + state.toString());
+            Log.d(TAG, "Signal change " + state.toString());
             switch (state) {
                 case STABLE:
                     break;
@@ -84,7 +88,7 @@ public class JanusPluginHandle {
 
         @Override
         public void onIceConnectionChange(PeerConnection.IceConnectionState state) {
-            Log.d("JANUSCLIENT", "Ice Connection change " + state.toString());
+            Log.d(TAG, "Ice Connection change " + state.toString());
             switch (state) {
                 case DISCONNECTED:
                     break;
@@ -101,6 +105,11 @@ public class JanusPluginHandle {
                 default:
                     break;
             }
+        }
+
+        @Override
+        public void onIceConnectionReceivingChange(boolean b) {
+
         }
 
         @Override
@@ -121,7 +130,7 @@ public class JanusPluginHandle {
                 default:
                     break;
             }
-            Log.d("JANUSCLIENT", "Ice Gathering " + state.toString());
+            Log.d(TAG, "Ice Gathering " + state.toString());
         }
 
         @Override
@@ -132,25 +141,35 @@ public class JanusPluginHandle {
         }
 
         @Override
+        public void onIceCandidatesRemoved(IceCandidate[] iceCandidates) {
+            Log.d(TAG, "onIceCandidatesRemoved");
+        }
+
+        @Override
         public void onAddStream(MediaStream stream) {
-            Log.d("JANUSCLIENT", "onAddStream " + stream.label());
+            Log.d(TAG, "onAddStream " + stream.getId());
             remoteStream = stream;
             onRemoteStream(stream);
         }
 
         @Override
         public void onRemoveStream(MediaStream stream) {
-            Log.d("JANUSCLIENT", "onRemoveStream");
+            Log.d(TAG, "onRemoveStream");
         }
 
         @Override
         public void onDataChannel(DataChannel channel) {
-            Log.d("JANUSCLIENT", "onDataChannel");
+            Log.d(TAG, "onDataChannel");
         }
 
         @Override
         public void onRenegotiationNeeded() {
-            Log.d("JANUSCLIENT", "Renegotiation needed");
+            Log.d(TAG, "Renegotiation needed");
+        }
+
+        @Override
+        public void onAddTrack(RtpReceiver rtpReceiver, MediaStream[] mediaStreams) {
+            Log.d(TAG, "onAddTrack");
         }
 
     }
@@ -182,19 +201,19 @@ public class JanusPluginHandle {
             JSONObject jsep = webrtcCallbacks.getJsep();
             if (jsep != null) {
                 if (pc == null) {
-                    Log.d("JANUSCLIENT", "could not set remote offer");
+                    Log.d(TAG, "could not set remote offer");
                     callbacks.onCallbackError("No peerconnection created, if this is an answer please use createAnswer");
                     return null;
                 }
                 try {
 
                     String sdpString = jsep.getString("sdp");
-                    Log.d("JANUSCLIENT", sdpString);
+                    Log.d(TAG, sdpString);
                     SessionDescription.Type type = SessionDescription.Type.fromCanonicalForm(jsep.getString("type"));
                     SessionDescription sdp = new SessionDescription(type, sdpString);
                     pc.setRemoteDescription(new WebRtcObserver(webrtcCallbacks), sdp);
                 } catch (JSONException ex) {
-                    Log.d("JANUSCLIENT", ex.getMessage());
+                    Log.d(TAG, ex.getMessage());
                     webrtcCallbacks.onCallbackError(ex.getMessage());
                 }
             }
@@ -207,7 +226,10 @@ public class JanusPluginHandle {
         this.plugin = plugin;
         id = handle_id;
         this.callbacks = callbacks;
-        sessionFactory = new PeerConnectionFactory();
+        PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+        sessionFactory = PeerConnectionFactory.builder()
+                .setOptions(options)
+                .createPeerConnectionFactory();
     }
 
     public void onMessage(String msg) {
@@ -252,13 +274,7 @@ public class JanusPluginHandle {
     }
 
     private void streamsDone(IPluginHandleWebRTCCallbacks webRTCCallbacks) {
-        MediaConstraints pc_cons = new MediaConstraints();
-        pc_cons.optional.add(new MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"));
-        if (webRTCCallbacks.getMedia().getRecvAudio())
-            pc_cons.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
-        if (webRTCCallbacks.getMedia().getRecvVideo())
-            pc_cons.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
-        pc = sessionFactory.createPeerConnection(server.iceServers, pc_cons, new WebRtcObserver(webRTCCallbacks));
+        pc = sessionFactory.createPeerConnection(server.iceServers, new WebRtcObserver(webRTCCallbacks));
         if (myStream != null)
             pc.addStream(myStream);
         if (webRTCCallbacks.getJsep() == null) {
@@ -309,15 +325,7 @@ public class JanusPluginHandle {
                 audioTrack = sessionFactory.createAudioTrack(AUDIO_TRACK_ID, source);
             }
             if (callbacks.getMedia().getSendVideo()) {
-                VideoCapturerAndroid capturer = null;
-                switch (callbacks.getMedia().getCamera()) {
-                    case back:
-                        capturer = VideoCapturerAndroid.create(VideoCapturerAndroid.getNameOfBackFacingDevice());
-                        break;
-                    case front:
-                        capturer = VideoCapturerAndroid.create(VideoCapturerAndroid.getNameOfFrontFacingDevice());
-                        break;
-                }
+                VideoCapturer capturer = createVideoCapturer();
                 MediaConstraints constraints = new MediaConstraints();
                 JanusMediaConstraints.JanusVideo videoConstraints = callbacks.getMedia().getVideo();
                /* constraints.mandatory.add(new MediaConstraints.KeyValuePair("maxHeight", Integer.toString(videoConstraints.getMaxHeight())));
@@ -326,7 +334,12 @@ public class JanusPluginHandle {
                 constraints.optional.add(new MediaConstraints.KeyValuePair("minWidth", Integer.toString(videoConstraints.getMinWidth())));
                 constraints.mandatory.add(new MediaConstraints.KeyValuePair("maxFrameRate", Integer.toString(videoConstraints.getMaxFramerate())));
                 constraints.optional.add(new MediaConstraints.KeyValuePair("minFrameRate", Integer.toString(videoConstraints.getMinFramerate()))); */
-                VideoSource source = sessionFactory.createVideoSource(capturer, constraints);
+                EglBase.Context eglContext = this.localEglbase == null ? null : this.localEglbase.getEglBaseContext();
+                SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", eglContext);
+                assert capturer != null;
+                VideoSource source = sessionFactory.createVideoSource(capturer.isScreencast());
+                capturer.initialize(surfaceTextureHelper, getApplicationContext(), source.getCapturerObserver());
+                capturer.startCapture(VIDEO_HEIGHT, VIDEO_WIDTH, VIDEO_FPS);
                 videoTrack = sessionFactory.createVideoTrack(VIDEO_TRACK_ID, source);
             }
             if (audioTrack != null || videoTrack != null) {
@@ -341,6 +354,35 @@ public class JanusPluginHandle {
                 onLocalStream(stream);
             streamsDone(callbacks);
         }
+    }
+
+    private VideoCapturer createVideoCapturer() {
+        Logging.d(TAG, "Creating capturer using camera1 API.");
+        CameraEnumerator enumerator = new Camera1Enumerator(false);
+        final String[] deviceNames = enumerator.getDeviceNames();
+
+        Logging.d(TAG, "Looking for front facing cameras.");
+        for (String deviceName : deviceNames) {
+            if (enumerator.isFrontFacing(deviceName)) {
+                Logging.d(TAG, "Creating front facing camera capturer.");
+                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
+                if (videoCapturer != null) {
+                    return videoCapturer;
+                }
+            }
+        }
+
+        Logging.d(TAG, "Looking for other cameras.");
+        for (String deviceName : deviceNames) {
+            if (!enumerator.isFrontFacing(deviceName)) {
+                Logging.d(TAG, "Creating other camera capturer.");
+                VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
+                if (videoCapturer != null) {
+                    return videoCapturer;
+                }
+            }
+        }
+        return null;
     }
 
     private void createSdpInternal(IPluginHandleWebRTCCallbacks callbacks, Boolean isOffer) {

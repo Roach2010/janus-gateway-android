@@ -1,14 +1,12 @@
 package computician.janusclient;
 
 import android.content.Context;
-import android.opengl.EGLContext;
 import android.util.Log;
 
 import org.json.JSONObject;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
-import org.webrtc.VideoRenderer;
-import org.webrtc.VideoRendererGui;
+import org.webrtc.VideoSink;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,9 +27,9 @@ import computician.janusclientapi.PluginHandleSendMessageCallbacks;
 //TODO create message classes unique to this plugin
 
 public class EchoTest {
-
+    private final String TAG = "EchoTest";
     private JanusPluginHandle handle = null;
-    private final VideoRenderer.Callbacks localRender, remoteRender;
+    private final VideoSink localRender, remoteRender;
     private final JanusServer janusServer;
 
     public class JanusGlobalCallbacks implements IJanusGatewayCallbacks {
@@ -164,18 +162,20 @@ public class EchoTest {
 
         @Override
         public void onLocalStream(MediaStream stream) {
-            stream.videoTracks.get(0).addRenderer(new VideoRenderer(localRender));
-            VideoRendererGui.update(localRender, 0, 0, 25, 25, VideoRendererGui.ScalingType.SCALE_ASPECT_FILL, false);
+            ProxyVideoSink localVideoSink = new ProxyVideoSink();
+            stream.videoTracks.get(0).addSink(localVideoSink);
+            localVideoSink.setTarget(localRender);
         }
 
         @Override
         public void onRemoteStream(MediaStream stream) {
             stream.videoTracks.get(0).setEnabled(true);
-            if(stream.videoTracks.get(0).enabled())
-                Log.d("JANUSCLIENT", "video tracks enabled");
-            stream.videoTracks.get(0).addRenderer(new VideoRenderer(remoteRender));
-            VideoRendererGui.update(remoteRender, 0, 0, 25, 25, VideoRendererGui.ScalingType.SCALE_ASPECT_FILL, true);
-            VideoRendererGui.update(localRender, 72, 72, 25, 25, VideoRendererGui.ScalingType.SCALE_ASPECT_FILL, false);
+            if(stream.videoTracks.get(0).enabled()) {
+                Log.d(TAG, "video tracks enabled");
+            }
+            ProxyVideoSink remoteVideoSink = new ProxyVideoSink();
+            stream.videoTracks.get(0).addSink(remoteVideoSink);
+            remoteVideoSink.setTarget(remoteRender);
         }
 
         @Override
@@ -210,14 +210,14 @@ public class EchoTest {
 
     }
 
-    public EchoTest(VideoRenderer.Callbacks localRender, VideoRenderer.Callbacks remoteRender) {
+    public EchoTest(VideoSink localRender, VideoSink remoteRender) {
         this.localRender = localRender;
         this.remoteRender = remoteRender;
         janusServer = new JanusServer(new JanusGlobalCallbacks());
     }
 
-    public boolean initializeMediaContext(Context context, boolean audio, boolean video, boolean videoHwAcceleration, EGLContext eglContext){
-        return janusServer.initializeMediaContext(context, audio, video, videoHwAcceleration, eglContext);
+    public boolean initializeMediaContext(Context context){
+        return janusServer.initializeMediaContext(context);
     }
 
     public void Start() {

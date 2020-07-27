@@ -1,52 +1,47 @@
 package computician.janusclient;
 
 import android.app.Activity;
-import android.opengl.EGLContext;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Window;
 import android.view.WindowManager;
 
-import org.webrtc.VideoRenderer;
-import org.webrtc.VideoRendererGui;
+import org.webrtc.EglBase;
+import org.webrtc.RendererCommon;
+import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoSink;
 
 public class JanusActivity extends Activity {
     public static String janusUri;
     final int testCase = 1;
+    private boolean activityRunning;
     private GLSurfaceView vsv;
-    private VideoRenderer.Callbacks localRender;
-    private VideoRenderer.Callbacks remoteRender;
+    private SurfaceViewRenderer localRender;
+    private SurfaceViewRenderer remoteRender;
     private EchoTest echoTest;
     private VideoRoomTest videoRoomTest;
+    private EglBase rootEglBase;
 
-    private class MyInit implements Runnable {
-
-        public void run() {
-            init();
-        }
-
-        private void init() {
-            try {
-                EGLContext con = VideoRendererGui.getEGLContext();
-                switch (testCase) {
-                    case 1:
-                        echoTest = new EchoTest(localRender, remoteRender);
-                        echoTest.initializeMediaContext(JanusActivity.this, true, true, true, con);
-                        echoTest.Start();
-                        break;
-                    case 2:
-                        VideoRenderer.Callbacks[] renderers = new VideoRenderer.Callbacks[1];
-                        renderers[0] = remoteRender;
-                        videoRoomTest = new VideoRoomTest(localRender, renderers);
-                        videoRoomTest.initializeMediaContext(JanusActivity.this, true, true, true, con);
-                        videoRoomTest.Start();
-                        break;
-                }
-
-            } catch (Exception ex) {
-                Log.e("computician.janusclient", ex.getMessage());
+    private void init() {
+        try {
+            switch (testCase) {
+                case 1:
+                    echoTest = new EchoTest(localRender, remoteRender);
+                    echoTest.initializeMediaContext(JanusActivity.this);
+                    echoTest.Start();
+                    break;
+                case 2:
+                    VideoSink[] renderers = new VideoSink[1];
+                    renderers[0] = remoteRender;
+                    videoRoomTest = new VideoRoomTest(localRender, renderers);
+                    videoRoomTest.initializeMediaContext(JanusActivity.this);
+                    videoRoomTest.Start();
+                    break;
             }
+
+        } catch (Exception ex) {
+            Log.e("computician.janusclient", ex.getMessage());
         }
     }
 
@@ -61,12 +56,57 @@ public class JanusActivity extends Activity {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        vsv = (GLSurfaceView) findViewById(R.id.glview);
-        vsv.setPreserveEGLContextOnPause(true);
-        vsv.setKeepScreenOn(true);
-        VideoRendererGui.setView(vsv, new MyInit());
+        rootEglBase = EglBase.create();
 
-        localRender = VideoRendererGui.create(72, 72, 25, 25, VideoRendererGui.ScalingType.SCALE_ASPECT_FILL, false);
-        remoteRender = VideoRendererGui.create(0, 0, 25, 25, VideoRendererGui.ScalingType.SCALE_ASPECT_FILL, true);
+        localRender = (SurfaceViewRenderer) findViewById(R.id.local_video_view);
+        localRender.init(rootEglBase.getEglBaseContext(), null);
+        localRender.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT);
+        localRender.setMirror(true);
+        localRender.requestLayout();
+
+        remoteRender = (SurfaceViewRenderer) findViewById(R.id.remote_video_view);
+        remoteRender.init(rootEglBase.getEglBaseContext(), null);
+        remoteRender.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT);
+        remoteRender.setMirror(false);
+        remoteRender.requestLayout();
+
+        init();
+    }
+
+    private void  createRender(SurfaceViewRenderer renderer, boolean mirrored, int videoView) {
+
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        activityRunning = false;
+    }
+
+    @Override
+    protected void onDestroy() {
+        disconnect();
+        activityRunning = false;
+        rootEglBase.release();
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        activityRunning = true;
+    }
+
+    private void disconnect() {
+        activityRunning = false;
+        if (localRender != null) {
+            localRender.release();
+            localRender = null;
+        }
+        if (remoteRender != null) {
+            remoteRender.release();
+            remoteRender = null;
+        }
+        finish();
     }
 }
