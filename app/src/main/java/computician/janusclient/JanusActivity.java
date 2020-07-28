@@ -12,6 +12,7 @@ import org.webrtc.VideoRenderer;
 import org.webrtc.VideoRendererGui;
 
 public class JanusActivity extends Activity {
+    public static String janusUri;
     final int testCase = 1;
     private GLSurfaceView vsv;
     private VideoRenderer.Callbacks localRender;
@@ -51,6 +52,7 @@ public class JanusActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        janusUri = getString(R.string.janus_uri);
         java.lang.System.setProperty("java.net.preferIPv6Addresses", "false");
         java.lang.System.setProperty("java.net.preferIPv4Stack", "true");
         super.onCreate(savedInstanceState);
