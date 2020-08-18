@@ -1,7 +1,6 @@
 package computician.janusclientapi;
 
 import android.content.Context;
-import android.opengl.EGLContext;
 import android.os.AsyncTask;
 
 import org.json.JSONException;
@@ -121,7 +120,6 @@ public class JanusServer implements Runnable, IJanusMessageObserver, IJanusSessi
                 thisThread.sleep(25000);
             } catch (InterruptedException ex) {
             }
-//            if (!connected || serverConnection.getMessengerType() != JanusMessengerType.websocket)
             if (!connected)
                 return;
             JSONObject obj = new JSONObject();

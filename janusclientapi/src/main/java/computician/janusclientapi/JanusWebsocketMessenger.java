@@ -23,7 +23,7 @@ import java.math.BigInteger;
  * Created by ben.trent on 5/7/2015.
  */
 public class JanusWebsocketMessenger implements IJanusMessenger {
-
+    private final String TAG = "JanusWebsocketMessenger";
     private final String uri;
     private final IJanusMessageObserver handler;
     private final JanusMessengerType type = JanusMessengerType.websocket;
@@ -56,28 +56,28 @@ public class JanusWebsocketMessenger implements IJanusMessenger {
                 client.setWriteableCallback(new WritableCallback() {
                     @Override
                     public void onWriteable() {
-                        Log.d("JANUSCLIENT", "On writable");
+                        Log.d(TAG, "On writable");
                     }
                 });
                 client.setPongCallback(new WebSocket.PongCallback() {
 
                     @Override
                     public void onPongReceived(String s) {
-                        Log.d("JANUSCLIENT", "Pong callback");
+                        Log.d(TAG, "Pong callback");
                     }
                 });
                 client.setDataCallback(new DataCallback() {
 
                     @Override
                     public void onDataAvailable(DataEmitter emitter, ByteBufferList bb) {
-                        Log.d("JANUSCLIENT", "New Data");
+                        Log.d(TAG, "New Data");
                     }
                 });
                 client.setEndCallback(new CompletedCallback() {
 
                     @Override
                     public void onCompleted(Exception ex) {
-                        Log.d("JANUSCLIENT", "Client End");
+                        Log.d(TAG, "Client End");
                     }
                 });
                 client.setStringCallback(new WebSocket.StringCallback() {
@@ -89,14 +89,14 @@ public class JanusWebsocketMessenger implements IJanusMessenger {
                 client.setClosedCallback(new CompletedCallback() {
                     @Override
                     public void onCompleted(Exception ex) {
-                        Log.d("JANUSCLIENT", "Socket closed for some reason");
+                        Log.d(TAG, "Socket closed for some reason");
                         if (ex != null) {
-                            Log.d("JANUSCLIENT", "SOCKET EX " + ex.getMessage());
+                            Log.d(TAG, "SOCKET EX " + ex.getMessage());
                             StringWriter writer = new StringWriter();
                             PrintWriter printWriter = new PrintWriter( writer );
                             ex.printStackTrace( printWriter );
                             printWriter.flush();
-                            Log.d("JANUSCLIENT", "StackTrace \n\t" + writer.toString());
+                            Log.d(TAG, "StackTrace \n\t" + writer.toString());
                         }
                         if (ex != null) {
                             onError(ex);
@@ -112,7 +112,7 @@ public class JanusWebsocketMessenger implements IJanusMessenger {
     }
 
     private void onMessage(String message) {
-        Log.d("JANUSCLIENT", "Recv: \n\t" + message);
+        Log.d(TAG, "Recv: \n\t" + message);
         receivedMessage(message);
     }
 
@@ -131,7 +131,7 @@ public class JanusWebsocketMessenger implements IJanusMessenger {
 
     @Override
     public void sendMessage(String message) {
-        Log.d("JANUSCLIENT", "Sent: \n\t" + message);
+        Log.d(TAG, "Sent: \n\t" + message);
         client.send(message);
     }
 

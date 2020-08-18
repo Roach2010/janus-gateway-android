@@ -3,16 +3,17 @@ package computician.janusclientapi;
 import android.net.Uri;
 import android.util.Log;
 
-import java.math.BigInteger;
-import com.koushikdutta.async.*;
-import com.koushikdutta.async.callback.CompletedCallback;
-import com.koushikdutta.async.future.Future;
-import com.koushikdutta.async.http.*;
-import com.koushikdutta.async.http.body.*;
+import com.koushikdutta.async.http.AsyncHttpClient;
+import com.koushikdutta.async.http.AsyncHttpGet;
+import com.koushikdutta.async.http.AsyncHttpPost;
+import com.koushikdutta.async.http.AsyncHttpRequest;
+import com.koushikdutta.async.http.AsyncHttpResponse;
+import com.koushikdutta.async.http.body.JSONObjectBody;
 import com.koushikdutta.async.http.callback.HttpConnectCallback;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.math.BigInteger;
 
 
 /**
@@ -21,7 +22,7 @@ import org.json.JSONObject;
 
 //TODO big todo...it would be good to use androidasync as we already utilize that for the websocket endpoint
 public class JanusRestMessenger implements IJanusMessenger {
-
+    private final String TAG = "JanusRestMessenger";
     private final IJanusMessageObserver handler;
     private final String uri;
     private BigInteger session_id;
@@ -83,7 +84,7 @@ public class JanusRestMessenger implements IJanusMessenger {
     @Override
     public void sendMessage(String message) {
         //todo
-        Log.d("message", "Sent: \n\t" + message);
+        Log.d(TAG, "Sent: \n\t" + message);
         if(resturi.isEmpty())
             resturi = uri;
         AsyncHttpRequest request = new AsyncHttpRequest(Uri.parse(resturi),"post");
@@ -141,7 +142,7 @@ public class JanusRestMessenger implements IJanusMessenger {
     public void receivedMessage(String msg) {
 
         try {
-            Log.d("message", "Recv: \n\t" + msg);
+            Log.d(TAG, "Recv: \n\t" + msg);
             JSONObject obj = new JSONObject(msg);
             handler.receivedNewMessage(obj);
         } catch (Exception ex) {

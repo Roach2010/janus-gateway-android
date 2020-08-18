@@ -1,15 +1,35 @@
 package computician.janusclientapi;
 
+import static org.webrtc.ContextUtils.getApplicationContext;
+
+import android.content.Context;
 import android.os.AsyncTask;
 import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.webrtc.*;
+import org.webrtc.AudioSource;
+import org.webrtc.AudioTrack;
+import org.webrtc.Camera1Enumerator;
+import org.webrtc.CameraEnumerator;
+import org.webrtc.DataChannel;
+import org.webrtc.DefaultVideoDecoderFactory;
+import org.webrtc.DefaultVideoEncoderFactory;
+import org.webrtc.EglBase;
+import org.webrtc.IceCandidate;
+import org.webrtc.MediaConstraints;
+import org.webrtc.MediaStream;
+import org.webrtc.PeerConnection;
+import org.webrtc.PeerConnectionFactory;
+import org.webrtc.RtpReceiver;
+import org.webrtc.SdpObserver;
+import org.webrtc.SessionDescription;
+import org.webrtc.SurfaceTextureHelper;
+import org.webrtc.VideoCapturer;
+import org.webrtc.VideoSource;
+import org.webrtc.VideoTrack;
 
 import java.math.BigInteger;
-
-import static org.webrtc.ContextUtils.*;
 
 /**
  * Created by ben.trent on 6/25/2015.
@@ -63,7 +83,7 @@ public class JanusPluginHandle {
 
         @Override
         public void onCreateFailure(String error) {
-            Log.d(TAG, "Create failure");
+            Log.d(TAG, "Create failure: " + error);
             webRtcCallbacks.onCallbackError(error);
         }
 
@@ -227,9 +247,23 @@ public class JanusPluginHandle {
         id = handle_id;
         this.callbacks = callbacks;
         PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+        DefaultVideoEncoderFactory defaultVideoEncoderFactory = new DefaultVideoEncoderFactory(
+                getEglContext(), true, true);
+        DefaultVideoDecoderFactory defaultVideoDecoderFactory = new DefaultVideoDecoderFactory(
+                getEglContext());
         sessionFactory = PeerConnectionFactory.builder()
                 .setOptions(options)
+                .setVideoEncoderFactory(defaultVideoEncoderFactory)
+                .setVideoDecoderFactory(defaultVideoDecoderFactory)
                 .createPeerConnectionFactory();
+    }
+
+    private EglBase.Context getEglContext() {
+        return this.localEglbase == null ? null : this.localEglbase.getEglBaseContext();
+    }
+
+    private Context getAppContext() {
+        return getApplicationContext();
     }
 
     public void onMessage(String msg) {
@@ -334,13 +368,14 @@ public class JanusPluginHandle {
                 constraints.optional.add(new MediaConstraints.KeyValuePair("minWidth", Integer.toString(videoConstraints.getMinWidth())));
                 constraints.mandatory.add(new MediaConstraints.KeyValuePair("maxFrameRate", Integer.toString(videoConstraints.getMaxFramerate())));
                 constraints.optional.add(new MediaConstraints.KeyValuePair("minFrameRate", Integer.toString(videoConstraints.getMinFramerate()))); */
-                EglBase.Context eglContext = this.localEglbase == null ? null : this.localEglbase.getEglBaseContext();
-                SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", eglContext);
-                assert capturer != null;
-                VideoSource source = sessionFactory.createVideoSource(capturer.isScreencast());
-                capturer.initialize(surfaceTextureHelper, getApplicationContext(), source.getCapturerObserver());
-                capturer.startCapture(VIDEO_HEIGHT, VIDEO_WIDTH, VIDEO_FPS);
-                videoTrack = sessionFactory.createVideoTrack(VIDEO_TRACK_ID, source);
+                SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create("VideoCapturerThread", getEglContext());
+                if (capturer != null) {
+                    VideoSource source = sessionFactory.createVideoSource(capturer.isScreencast());
+                    capturer.initialize(surfaceTextureHelper, getAppContext(),
+                            source.getCapturerObserver());
+                    capturer.startCapture(VIDEO_HEIGHT, VIDEO_WIDTH, VIDEO_FPS);
+                    videoTrack = sessionFactory.createVideoTrack(VIDEO_TRACK_ID, source);
+                }
             }
             if (audioTrack != null || videoTrack != null) {
                 stream = sessionFactory.createLocalMediaStream(LOCAL_MEDIA_ID);
@@ -356,15 +391,16 @@ public class JanusPluginHandle {
         }
     }
 
+    // TODO Use Camera2 API
     private VideoCapturer createVideoCapturer() {
-        Logging.d(TAG, "Creating capturer using camera1 API.");
+        Log.d(TAG, "Creating capturer using camera1 API.");
         CameraEnumerator enumerator = new Camera1Enumerator(false);
         final String[] deviceNames = enumerator.getDeviceNames();
 
-        Logging.d(TAG, "Looking for front facing cameras.");
+        Log.d(TAG, "Looking for front facing cameras.");
         for (String deviceName : deviceNames) {
             if (enumerator.isFrontFacing(deviceName)) {
-                Logging.d(TAG, "Creating front facing camera capturer.");
+                Log.d(TAG, "Creating front facing camera capturer.");
                 VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
                 if (videoCapturer != null) {
                     return videoCapturer;
@@ -372,10 +408,10 @@ public class JanusPluginHandle {
             }
         }
 
-        Logging.d(TAG, "Looking for other cameras.");
+        Log.d(TAG, "Looking for other cameras.");
         for (String deviceName : deviceNames) {
             if (!enumerator.isFrontFacing(deviceName)) {
-                Logging.d(TAG, "Creating other camera capturer.");
+                Log.d(TAG, "Creating other camera capturer.");
                 VideoCapturer videoCapturer = enumerator.createCapturer(deviceName, null);
                 if (videoCapturer != null) {
                     return videoCapturer;
@@ -390,9 +426,11 @@ public class JanusPluginHandle {
         pc_cons.optional.add(new MediaConstraints.KeyValuePair("DtlsSrtpKeyAgreement", "true"));
         if (callbacks.getMedia().getRecvAudio()) {
             pc_cons.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+            Log.d(TAG, "Receiving audio");
         }
         if (callbacks.getMedia().getRecvVideo()) {
-            Log.d("VIDEO_ROOM", "Receiving video");
+            pc_cons.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
+            Log.d(TAG, "Receiving video");
         }
         if (isOffer) {
             pc.createOffer(new WebRtcObserver(callbacks), pc_cons);
